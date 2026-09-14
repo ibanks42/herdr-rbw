@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 #
-# Metadata cache for herdr-bitwarden.
+# Metadata cache for herdr-rbw.
 # Ported from tmux-bitwarden's cache.sh — cache file lives in the
 # plugin state dir. Cache stores metadata ONLY (name/username/URIs),
 # never passwords.
@@ -35,9 +35,9 @@ bw_cache_is_expired() {
   ((now - mtime >= ttl_seconds))
 }
 
-# Execute bw list items with auth retry.
+# Execute rbw list with auth retry.
 bw_list_items_raw() {
-  bw_run_with_auth "bw_cli_list_items"
+  bw_run_with_auth "rbw_cli_list_items"
 }
 
 bw_list_items_with_cache() {
@@ -48,16 +48,25 @@ bw_list_items_with_cache() {
   local cache_filter
   local enabled_cache
 
+  # Normalized cache shape (kept identical to the `bw` era so old cache
+  # files stay valid): {id, name, login: {username, uris: [{uri}], has_totp}}.
+  # rbw differences handled here:
+  #   - entry type is the string "Login" (bw used the number 1)
+  #   - username lives in .user (bw: .login.username)
+  #   - uris is an array of STRINGS (bw: array of {uri} objects) —
+  #     re-wrapped into {uri} objects for downstream code
+  #   - `rbw list --raw` exposes no TOTP secret, so has_totp is always
+  #     false for fresh entries (old cache files keep their stored value)
   cache_filter='
     map(
-      select(.type == 1 and .login != null)
+      select(.type == "Login" or .type == 1)
       | {
           id,
           name,
           login: {
-            username: .login.username,
-            uris: .login.uris,
-            has_totp: (.login.totp != null and .login.totp != "")
+            username: (.user // .login.username // ""),
+            uris: ((.uris // .login.uris // []) | map(if type == "string" then {uri: .} else {uri: (.uri // "")} end)),
+            has_totp: (.login.has_totp // false)
           }
         }
     )

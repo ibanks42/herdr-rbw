@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # shellcheck disable=SC2034
 #
-# Copy/paste actions for herdr-bitwarden.
+# Copy/paste actions for herdr-rbw.
 # Ported from tmux-bitwarden's actions.sh:
 #   - tmux send-keys -l -t "$pane" -- "$value"  →  herdr pane send-text <pane> <value>
 #   - clipboard helpers unchanged.
@@ -37,7 +37,7 @@ bw_get_totp() {
   local id="$1"
   local value
 
-  value="$(bw_run_with_auth "bw_cli_get_totp" "$id")" || return 1
+  value="$(bw_run_with_auth "rbw_cli_get_totp" "$id")" || return 1
   [[ -n "$value" ]] || return 1
 
   printf '%s\n' "$value"
@@ -48,7 +48,9 @@ bw_get_value() {
   local field="$2"
   local value
 
-  value="$(bw_run_with_auth "bw_cli_get_item_by_id" "$id" | jq --arg field "$field" -r '.login[$field] // empty')" || return 1
+  # rbw `get --raw` nests credentials under .data
+  # (bw used .login); non-login entries yield empty here.
+  value="$(bw_run_with_auth "rbw_cli_get_item_by_id" "$id" | jq --arg field "$field" -r '.data[$field] // empty')" || return 1
   [[ -n "$value" ]] || return 1
 
   printf '%s\n' "$value"

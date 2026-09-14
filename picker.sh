@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 #
-# herdr-bitwarden picker — entrypoint for the popup pane.
+# herdr-rbw picker — entrypoint for the popup pane.
 # Merges tmux-bitwarden's ui.sh + main.sh:
 #   - herdr opens the popup from the manifest (no display-popup needed)
 #   - this script runs INSIDE the popup and drives the fzf selector
@@ -26,7 +26,7 @@ source "$CURRENT_DIR/lib/selector.sh"
 REQUIRED_BINARIES=(
   jq
   fzf
-  bw
+  rbw
 )
 
 bw_check_dependencies() {

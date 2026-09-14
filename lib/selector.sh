@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 #
-# fzf selector for herdr-bitwarden.
+# fzf selector for herdr-rbw.
 # Ported from tmux-bitwarden's selector.sh (function prefix tmux_bw_ → bw_).
 
 readonly BW_KEY_COPY_TOTP="alt-t"
@@ -29,7 +29,7 @@ bw_selector_rows() {
         .id,
         (.name // ""),
         (.login.username // ""),
-        ((.login.uris // []) | map(.uri // "") | @json),
+        ((.login.uris // []) | map(if type == "string" then . else (.uri // "") end) | @json),
         (.login.has_totp // false)
       ]
     | @tsv

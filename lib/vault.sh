@@ -1,26 +1,26 @@
 #!/usr/bin/env bash
 #
-# Bitwarden CLI wrappers for herdr-bitwarden.
-# Ported from tmux-bitwarden's vault.sh.
-# NOTE: raw CLI functions use bw_cli_* prefix so they don't collide with
+# rbw CLI wrappers for herdr-rbw.
+# NOTE: raw CLI functions use rbw_cli_* prefix so they don't collide with
 # the auth-wrapped wrappers in actions.sh (bw_get_totp etc.).
+# Unlike `bw`, rbw needs no session token: the rbw-agent holds the keys,
+# so these wrappers take no session argument.
 
-bw_cli_list_items() {
-  local session="$1"
-
-  bw list items --session "$session" --nointeraction
+rbw_cli_list_items() {
+  # Best-effort sync so a cache refresh picks up server-side changes.
+  # Ignored when offline — `rbw list` still serves the local database.
+  rbw sync >/dev/null 2>&1 || true
+  rbw list --raw
 }
 
-bw_cli_get_item_by_id() {
-  local session="$1"
-  local id="$2"
+rbw_cli_get_item_by_id() {
+  local id="$1"
 
-  bw get item --session "$session" --nointeraction "$id"
+  rbw get --raw "$id"
 }
 
-bw_cli_get_totp() {
-  local session="$1"
-  local id="$2"
+rbw_cli_get_totp() {
+  local id="$1"
 
-  bw get totp --session "$session" --nointeraction "$id"
+  rbw code "$id"
 }

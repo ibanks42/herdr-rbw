@@ -1,6 +1,6 @@
-# herdr-bitwarden
+# herdr-rbw
 
-![License](https://img.shields.io/github/license/WillowMist/herdr-bitwarden)
+![License](https://img.shields.io/github/license/ibanks42/herdr-rbw)
 
 Fuzzy-search your Bitwarden vault and paste/copy credentials — directly inside [herdr](https://herdr.dev), your agent-aware terminal multiplexer.
 
@@ -10,7 +10,7 @@ This is a **herdr port of [tmux-bitwarden](https://github.com/Alkindi42/tmux-bit
 
 - 🔍 Fuzzy search Bitwarden items with `fzf`
 - 👀 Preview username and URIs before selecting
-- 🔐 Secure vault access through the Bitwarden CLI
+- 🔐 Secure vault access through `rbw` (agent-held keys, no session tokens)
 - 🔁 Automatic re-authentication on session expiration
 - ⚡ Fast search with optional metadata caching
 - ⌨️ Keyboard-driven workflow
@@ -21,7 +21,8 @@ This is a **herdr port of [tmux-bitwarden](https://github.com/Alkindi42/tmux-bit
 ## Requirements
 
 - [herdr](https://herdr.dev) >= 0.8.0 (plugin v1)
-- [Bitwarden CLI](https://bitwarden.com/help/cli/) (`bw`)
+- [rbw](https://github.com/doy/rbw) (unofficial Bitwarden CLI; agent-based, no session juggling)
+- [pinentry](https://www.gnupg.org/related_software/pinentry/index.en.html) (for the unlock prompt; `rbw` requires it)
 - [jq](https://jqlang.github.io/jq/)
 - [fzf](https://github.com/junegunn/fzf)
 - Bash >= 4
@@ -31,7 +32,7 @@ This is a **herdr port of [tmux-bitwarden](https://github.com/Alkindi42/tmux-bit
 Install it from GitHub:
 
 ```bash
-herdr plugin install WillowMist/herdr-bitwarden
+herdr plugin install ibanks42/herdr-rbw
 ```
 
 Then add a keybinding in `~/.config/herdr/config.toml` (the original tmux plugin used `prefix+b`, but that's herdr's native `toggle_sidebar` — this chord keeps the same letter):
@@ -62,19 +63,25 @@ Press `prefix + ctrl + b` (or whatever key you bound) to open the Bitwarden sele
 
 ## Authentication
 
-Before using the plugin, log in to Bitwarden once with the CLI:
+Before using the plugin, configure `rbw` once:
 
 ```bash
-bw login
+rbw config set email you@example.com
+rbw login
+# only needed for the official bitwarden.com server:
+rbw register
 ```
 
-_No manual `BW_SESSION` export is required._ The plugin automatically:
+_No manual session handling is required._ The plugin automatically:
 
-- reuses your existing Bitwarden session when available (including `BW_SESSION` env)
-- prompts for unlock only when necessary (the popup is a real terminal, so the master-password prompt works right inside it)
-- retries operations transparently if the session expires
+- checks the agent state with `rbw unlocked`
+- prompts for unlock only when necessary via `rbw unlock` (the popup is a real terminal, so the master-password prompt works right inside it)
+- retries operations transparently if the vault re-locks
 
-The session key is stored in the plugin state dir (`HERDR_PLUGIN_STATE_DIR/session`, chmod 600).
+Unlike the old `bw`-based flow, there is no `BW_SESSION` token and no
+session file: the `rbw-agent` background process holds the keys in memory
+(like `ssh-agent`). Any `session` file left over from the `bw` era is
+deleted on startup.
 
 ## Configuration
 
@@ -84,41 +91,46 @@ All options are optional and read from environment variables, or from
 
 | Variable | Default | Description |
 |------|------|------|
-| `BW_CACHE` | `true` | Enable/disable the metadata cache |
-| `BW_CACHE_TTL` | `86400` | Cache duration in seconds (`-1` = never expire) |
-| `BW_CACHE_FILE` | `<state>/items.json` | Cache file location |
+| `RBW_CACHE` | `true` | Enable/disable the metadata cache |
+| `RBW_CACHE_TTL` | `86400` | Cache duration in seconds (`-1` = never expire) |
+| `RBW_CACHE_FILE` | `<state>/items.json` | Cache file location |
+
+Legacy `BW_CACHE*` names from the `bw` era are still honored as a fallback.
+`RBW_PROFILE` (rbw's native vault-switching env var) is passed through
+untouched.
 
 Example `config.env`:
 
 ```bash
-BW_CACHE=true
-BW_CACHE_TTL=43200
+RBW_CACHE=true
+RBW_CACHE_TTL=43200
 ```
 
 ## Security
 
 - Passwords are **never stored in the cache** — only metadata (name, username, URIs)
-- Passwords are retrieved **only when required** (on paste/copy)
-- Vault access is handled by the Bitwarden CLI session
-- The session key lives in the plugin state dir with `0600` perms
+- Passwords are retrieved **only when required** (on paste/copy, via `rbw get --raw` / `rbw code`)
+- Vault keys live in the `rbw-agent` process memory (like `ssh-agent`) — no session token on disk or in env
+- The metadata cache holds no secrets and `rbw list --raw` exposes none (TOTP presence is therefore not shown for fresh entries)
 
 ## How it works
 
 - `herdr-plugin.toml` — manifest declaring the `picker` popup pane and the `open-picker` action
 - `picker.sh` — entrypoint (runs inside the popup): dependency check → session check → fzf selector → dispatch
 - `lib/selector.sh` — fzf selector (ported from tmux-bitwarden; preview moved to `lib/preview.sh`)
-- `lib/session.sh` — auth/session handling, auto-re-auth on expiry
+- `lib/session.sh` — auth via the rbw agent (`rbw unlocked` / `rbw unlock`), auto-re-auth on lock
+- `lib/vault.sh` — rbw wrappers (`rbw list --raw`, `rbw get --raw`, `rbw code`)
 - `lib/cache.sh` — metadata cache with TTL
 - `lib/actions.sh` — paste via `herdr pane send-text <pane> <value>`, copy via clipboard
 - `lib/common.sh` — helpers; resolves the target pane from `HERDR_PLUGIN_CONTEXT_JSON.focused_pane_id`
 
 ## Differences from tmux-bitwarden
 
-| tmux-bitwarden | herdr-bitwarden |
+| tmux-bitwarden | herdr-rbw |
 |---|---|
 | `tmux display-popup` | herdr manifest `placement = "popup"` pane |
 | `tmux send-keys -l -t "$pane" -- "$value"` | `herdr pane send-text "$pane" "$value"` |
-| `@bw-*` tmux options | `BW_*` env vars / `config.env` |
+| `@bw-*` tmux options | `RBW_*` env vars / `config.env` (`BW_*` still honored as fallback) |
 | `tmux display-message` | stderr in the popup |
 | session stored in tmux option | session stored in plugin state dir (0600) |
 

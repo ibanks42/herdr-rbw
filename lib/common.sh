@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 #
-# Common helpers for herdr-bitwarden.
+# Common helpers for herdr-rbw.
 # Port of tmux-bitwarden's common.sh — tmux display-message becomes
 # stderr output (the popup is a real terminal, so stderr is visible).
 
@@ -14,7 +14,7 @@ is_binary_exist() {
 # Display a message (visible in the popup / on stderr)
 bw_display_message() {
   local message="$1"
-  printf 'herdr-bitwarden: %s\n' "$message" >&2
+  printf 'herdr-rbw: %s\n' "$message" >&2
 }
 
 # Get the current/focused pane id.
