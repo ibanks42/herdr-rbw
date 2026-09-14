@@ -6,6 +6,8 @@ Fuzzy-search your Bitwarden vault and paste/copy credentials — directly inside
 
 This is a **herdr port of [tmux-bitwarden](https://github.com/Alkindi42/tmux-bitwarden) by [Alkindi](https://github.com/Alkindi42)**, adapted from the tmux plugin system to herdr's native plugin v1 format. The design, the fzf selector UX, the session/auth handling, and the metadata cache all come from Alkindi's original — this port just moves them from tmux keybindings to herdr panes and actions. Huge thanks to Alkindi for the original; it's a lovely piece of work. 🫡
 
+> **Fork note:** `herdr-rbw` is a fork of [WillowMist/herdr-bitwarden](https://github.com/WillowMist/herdr-bitwarden) (the `bw`-based herdr port by Penfold/Willow Cline). The herdr porting work — manifest, popup plumbing, fzf selector, cache design — is theirs; this fork converts the backend from the official `bw` CLI to [`rbw`](https://github.com/doy/rbw).
+
 ## Features
 
 - 🔍 Fuzzy search Bitwarden items with `fzf`
@@ -21,7 +23,7 @@ This is a **herdr port of [tmux-bitwarden](https://github.com/Alkindi42/tmux-bit
 ## Requirements
 
 - [herdr](https://herdr.dev) >= 0.8.0 (plugin v1)
-- [rbw](https://github.com/doy/rbw) (unofficial Bitwarden CLI; agent-based, no session juggling)
+- [rbw](https://github.com/doy/rbw) (unofficial Bitwarden CLI)
 - [pinentry](https://www.gnupg.org/related_software/pinentry/index.en.html) (for the unlock prompt; `rbw` requires it)
 - [jq](https://jqlang.github.io/jq/)
 - [fzf](https://github.com/junegunn/fzf)
@@ -132,7 +134,7 @@ RBW_CACHE_TTL=43200
 | `tmux send-keys -l -t "$pane" -- "$value"` | `herdr pane send-text "$pane" "$value"` |
 | `@bw-*` tmux options | `RBW_*` env vars / `config.env` (`BW_*` still honored as fallback) |
 | `tmux display-message` | stderr in the popup |
-| session stored in tmux option | session stored in plugin state dir (0600) |
+| session stored in tmux option | keys held by `rbw-agent` in memory (no session file) |
 
 ## License
 
